@@ -463,14 +463,51 @@ class Domlib {
             onInit:(el,attr,option)=>{console.log(el,attr,option);},
           }
         },
-        { // 7-directive-style []
+        { // 7-directive-style [x]
           directiveName:'directive-style',
           reg:'style',
           regex:this.createRegexValid('style'),
           data:{},
           directive:{
-            directiveName:'directive-styl',
-            onInit:(el,attr,option)=>{console.log(el,attr,option);},
+            directiveName:'directive-style',
+            onInit:(el,attr,option)=>{
+              const {lastState,name}=option.attachment
+              var handler=lastState[name]
+              var listHev=[]
+              const removeEv=(obj=handler)=>{
+                for (const [key, value] of Object.entries(obj)) {
+                  el.style[key]=""
+                }
+                listHev.forEach(h=>obj.$handlerEvent.remove(h))
+                listHev=[]
+              }
+              const iniEv=(obj=handler)=>{
+                removeEv(obj===handler?{}:handler)
+                handler=obj
+                Object.assign(el.style,obj)
+                listHev=[
+                obj.$on.change('*',(option)=>{
+                  el.style[option.$option.key]=option.$option.value
+                }),
+                obj.$on.delete('*',(option)=>{
+                  el.style[option.$option.key]=""
+                })
+                ]
+              }
+              iniEv(handler)
+              var isRemoved=false
+              const hEv=lastState.$on.change(name,(option)=>{
+                if(isRemoved) return
+                if(typeof option.$option.value=='object'){
+                  iniEv(option.$option.value)
+                }
+              })
+              lastState.$on.delete(name,()=>{
+                const result=lastState.$handlerEvent.remove(hEv)
+                removeEv()
+                isRemoved=true
+              })
+            },
           }
         },
         { // 8-directive-form []

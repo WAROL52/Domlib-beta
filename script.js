@@ -1,30 +1,34 @@
 /* eslint-disable no-undef */
 const elMonApp=Domlib.el('mon-app',function Rolio (handler){
-    const liste={}
-    handler.age=false
-    handler.info={
-        nom:'Rolio',
-        prenom:'WArol',
-        liste,
-        plus:{
-            moi:'',
-            toi:[1,2,3,4]
+    handler.monStyle={
+        color:'red'
+    }
+    handler.changeColor=(ev)=>{
+        handler.monStyle.color=ev.target.innerHTML
+    }
+    handler.deleteColor=(ev)=>{
+        delete handler.monStyle.color
+    }
+    handler.effacer=(ev)=>{
+        delete handler.monStyle
+    }
+    handler.changer=()=>{
+        handler.monStyle={
+            color:'yellow'
         }
     }
-    handler.$on.emit('salutation',(option)=>{
-        console.log(option);
-    })
-    handler.saluer=(e)=>{
-        console.log(this);
-        console.log(e);
-    }
-        // console.log(e.recreateEvent());
-    setInterval(()=>{
-     handler.age=!handler.age
-    },2000)
-    return`<h1 :nom="info"  call:="saluer" > salu les {{info.plus.toi}} 
-        <input type="text" :disabled="age" >
-    </h1>`},false)
+    console.log(handler);
+    return`<h1 style:="monStyle" >
+        je suis le titre du dom
+    </h1>
+    <p style:="monStyle">je uis un paragraphe</p>
+    <button on:click="changeColor">green</button>
+    <button on:click="changeColor">red</button>
+    <button on:click="deleteColor">delete</button>
+    <button on:click="changer">changer</button>
+    <button on:click="effacer">effacer</button>
+    `
+},false)
 
 const e=new elMonApp({
     nom:'rolio',

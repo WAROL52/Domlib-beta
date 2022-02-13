@@ -514,33 +514,6 @@ class Traper extends TargetController {
       this.insertController(target)
       return new Proxy(target, new Trap(this,handler));
     }
-    static createTrapMagic(target,handler={}){
-      const controller=new TargetController(target,handler)
-      
-      const setTrotoBefore=(proto,protoPushed)=>{
-        while(proto.constructor!=Object){
-            var p=Object.getPrototypeOf(proto)
-            if(p.constructor==Object){
-                break
-            }else{
-                proto=p
-            }
-        }
-        Object.setPrototypeOf(proto,protoPushed)
-      }
-      const trap=new Proxy({},new Trap(controller))
-      controller.originalTrap=trap
-      target.$$delete=(key)=>{
-        delete trap[key]
-        delete target[key]
-      }
-      if(target.constructor==Object){
-        Object.setPrototypeOf(target.constructor,trap)
-      }else{
-        setTrotoBefore(Object.getPrototypeOf(target),trap)
-      }
-      return controller
-    }
     static isConstructor(func) {
       return typeof func === 'function' && !!func.prototype && func.prototype.constructor === func;
     }  
