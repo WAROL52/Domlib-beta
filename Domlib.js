@@ -352,13 +352,14 @@ class Domlib {
                 console.warn(`In ${el.localName}[${attr.name}='${attr.value}'] : '${attr.value}' is not finded`);
                 throw `In ${el.localName}[${attr.name}='${attr.value}'] : '${attr.value}' is not finded `
               }
+              const getValue=()=>el.value??el.getAttribute('value')??el[option.opt]??el.getAttribute(option.opt)
               const type={
                 radio:()=>{
                   const rendEl=(e)=>{
                     var check=el.checked??el.getAttributeNode('checked')
                     if(check || e){
                       if(check?.name)check=check?.value==''?'on':check?.value
-                      lastState[name]=el.value??el.getAttribute('value')??check??lastState[name]
+                      lastState[name]=getValue()??check??lastState[name]
                     }
                   }
                   option.opts.slice(1).forEach(ev=>{
@@ -379,8 +380,7 @@ class Domlib {
                   const addEvent=()=>{
                     option.opts.slice(1).forEach(ev=>{
                       el.addEventListener(ev,()=>{
-                        console.log('defaultl');
-                        lastState[name]=el.value??el.getAttribute('value')??lastState[name]
+                        lastState[name]=getValue()??lastState[name]
                       })
                     })
                   }
@@ -390,6 +390,9 @@ class Domlib {
                 }
               }
               var tpe=el.type ?? el.getAttribute('type')
+              if(option.opts.length==1){
+                type.default()
+              }
               if(tpe){
                 if(type[tpe])type[tpe]()
                 else type.default();

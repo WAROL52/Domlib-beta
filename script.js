@@ -23,10 +23,10 @@ const elMonApp=Domlib.el('mon-app',function Rolio (handler){
         boucle --------------------etou za zaoooo-
         <div>
         {{nom}} <br>
-            <input  type="radio" name="fruit" value="mangue" :value.input="nom"> mangue <br>
-            <input  name="fruit" :value.input="nom"> ananas <br>
-            <input  type="radio" name="fruit" :value.input="nom"> fraise <br>
-            <h1   type="radio" :nom.click="nom" >salu c'est moi</h1>
+            <input type="radio"  name="fruit"  :value.input="nom"> mangue <br>
+            <input  type="radio" name="fruit" value="ananas"  :value.input="nom"> ananas <br>
+            <input  type="radio" name="fruit" :checked.input="nom"> fraise <br>
+            <h1  o="yooo" type="radio" :o.click="nom" >salu c'est moi</h1>
         </div>
         finc boucle---------------
     </div>
