@@ -1,32 +1,35 @@
 /* eslint-disable no-undef */
 const elMonApp=Domlib.el('mon-app',function Rolio (handler){
-    handler.monStyle={
-        color:'red'
+    handler.fruits=["manque"]
+    handler.nom="Rolio"
+    // handler.key="moi"
+    handler.changerNom=()=>{
+        handler.nom='WAROL'
+        // handler.fruits[2]=[Math.random()]
+        handler.fruits.push(['pushed-1','pushed-2'])
     }
-    handler.changeColor=(ev)=>{
-        handler.monStyle.color=ev.target.innerHTML
+    handler.reverse=()=>{
+        handler.fruits.reverse()
     }
-    handler.deleteColor=(ev)=>{
-        delete handler.monStyle.color
+    handler.pushList=(option)=>{
+        console.log(option.target.getAttribute('key'));
+        handler.fruits[option.target.getAttribute('key')].push('mama')
     }
-    handler.effacer=(ev)=>{
-        delete handler.monStyle
-    }
-    handler.changer=()=>{
-        handler.monStyle={
-            color:'yellow'
-        }
-    }
-    console.log(handler);
-    return`<h1 style:="monStyle" >
-        je suis le titre du dom
-    </h1>
-    <p style:="monStyle">je uis un paragraphe</p>
-    <button on:click="changeColor">green</button>
-    <button on:click="changeColor">red</button>
-    <button on:click="deleteColor">delete</button>
-    <button on:click="changer">changer</button>
-    <button on:click="effacer">effacer</button>
+    // setInterval(()=>{
+    //     handler.nom+="r"
+    // },3000)
+    return`
+    <div>
+        boucle --------------------etou za zaoooo-
+        <div>
+        {{nom}} <br>
+            <input  type="radio" name="fruit" value="mangue" :value.input="nom"> mangue <br>
+            <input  name="fruit" :value.input="nom"> ananas <br>
+            <input  type="radio" name="fruit" :value.input="nom"> fraise <br>
+            <h1   type="radio" :nom.click="nom" >salu c'est moi</h1>
+        </div>
+        finc boucle---------------
+    </div>
     `
 },false)
 
@@ -40,5 +43,3 @@ e.addEventListener('salutation',(e)=>{
 })
 
 Domlib.appendChild(e)
-
-  

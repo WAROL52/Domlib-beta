@@ -54,7 +54,7 @@ class Trap{
           return true
         } 
       }
-      
+      // console.log((key));
       this.targetController.emitFromTrap('set',{
         break: false,
         key,
@@ -100,6 +100,7 @@ class TargetController {
       change: {},
       emit:{}
     };
+    proxy=new Proxy({},{})
     createEvent(key, func,type,data={},originalHandlerEvent={}) {
       const registre = this.#registre[type];
       if (!registre[key]) registre[key] = [];
@@ -144,9 +145,10 @@ class TargetController {
       return Boolean(this.#registre[type][key])
     }
     dispatch(key, option, type) {
-      const target = this.getHandlerEvent(key,type)
+      const target = this.getHandlerEvent(key,type).filter(h=>h._key==key && h._type==type)
       if (!target) return;
       if (!Array.isArray(target)) return;
+      console.log(type,key,target);
       const emit=()=>{
         target.forEach((handler) => {
           handler.$option=option
@@ -373,7 +375,6 @@ class TargetController {
             chaine = chaine.slice(0, arg.index);
             arg = arg[1];
           }
-    
           return chaine in handler
             ? {
               hasFinded:true,
@@ -413,7 +414,7 @@ class TargetController {
         }
     }
     getByPath=function(path,...data){
-      data.push(this.target)
+      data.push(this.proxy)
         const defaultReturn={
           hasFinded:false,
           path,
@@ -512,7 +513,8 @@ class Traper extends TargetController {
       if(target.$isTrap ) return target
       
       this.insertController(target)
-      return new Proxy(target, new Trap(this,handler));
+      this.proxy=new Proxy(target, new Trap(this,handler));
+      return this.proxy
     }
     static isConstructor(func) {
       return typeof func === 'function' && !!func.prototype && func.prototype.constructor === func;
