@@ -125,7 +125,7 @@ class Domlib {
         const rendEl=(index,value)=>{
           const _el=Domlib.createElement(template||value)
           
-          if(Domlib.isDomText(_el))_el.data+=','
+          // if(Domlib.isDomText(_el))_el.data+=','
           if(isNaN(Number(index))){
             if(regElement[index]){
               regElement[index].before(_el)
@@ -354,7 +354,43 @@ class Domlib {
               }
               const getValue=()=>el.value??el.getAttribute('value')??el[option.opt]??el.getAttribute(option.opt)
               const type={
+                checkbox:()=>{
+                  const verifyValidation=()=>{
+                    if(!Array.isArray(lastState[name])){
+                      const message=`In ${el.localName}[${attr.name}='${attr.value}'] : '${attr.value}' must be an Array`
+                      console.warn(message);
+                      throw message
+                    }
+                    if(!el.value && !el.getAttribute('value')){
+                      const message=`In ${el.localName}[${attr.name}='${attr.value}'] : this element must to have an attribute 'value'`
+                      console.warn(message);
+                      throw message
+                    }
+                  }
+                  const rendEl=(e)=>{
+                    verifyValidation()
+                    var check=el.checked??el.getAttributeNode('checked')
+                    if(check || e){
+                      if(check?.name)check=check?.value==''?'on':check?.value
+                      if(check){
+                        lastState[name].push(el.value??el.getAttribute('value'))
+                      }else{
+                        const index=lastState[name].indexOf(el.value??el.getAttribute('value'))
+                        if(index>0)lastState[name].splice(index,1)
+                      }
+                    }
+                  }
+                  option.opts.slice(1).forEach(ev=>{
+                    el.addEventListener(ev,rendEl)
+                  })
+                  rendEl()
+                },
                 radio:()=>{
+                  if(!el.value && !el.getAttribute('value')){
+                    const message=`In ${el.localName}[${attr.name}='${attr.value}'] : this element must to have an attribute 'value'`
+                    console.warn(message);
+                    throw message
+                  }
                   const rendEl=(e)=>{
                     var check=el.checked??el.getAttributeNode('checked')
                     if(check || e){
