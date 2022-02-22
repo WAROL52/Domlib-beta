@@ -1,4 +1,4 @@
-class HandlerEventTrap{
+class EventListener{
   constructor(handler={type:'',key:'',func:()=>{}}){
     const {type='',key='',func=()=>{}}=handler
     if(!(type && key && func))return undefined
@@ -101,10 +101,19 @@ class TargetController {
       emit:{}
     };
     proxy=new Proxy({},{})
-    createEvent(key, func,type,data={},originalHandlerEvent={}) {
+    #toRemoves={}
+    #addToRemoves=(type,key,toRemove)=>{
+      if(!this.#toRemoves[type])this.#toRemoves[type]={}
+      if(!this.#toRemoves[type][key])this.#toRemoves[type][key]=[]
+      this.#toRemoves[type][key].push(toRemove)
+    }
+    createEvent(key, func,toRemove,type,data={},originalHandlerEvent={}) {
       const registre = this.#registre[type];
       if (!registre[key]) registre[key] = [];
-      const handler=new HandlerEventTrap({func,type,key})
+      const handler=new EventListener({func,type,key})
+
+      
+
       registre[key].push(handler);
       const position=()=>registre[key].indexOf(handler)
       Object.assign(handler,data)
@@ -113,10 +122,10 @@ class TargetController {
         writable:false
       })
       Object.defineProperty(handler,'_get',{
-        get:this.getHandlerEvent.bind(this),
+        get:this.getEventListeners.bind(this),
       })
       Object.defineProperty(handler,'_remove',{
-        value:this.removeHandlerEvent.bind(this),
+        value:this.removeEventListener.bind(this),
         writable:false
       })
       Object.defineProperty(handler,'_position',{
@@ -145,15 +154,13 @@ class TargetController {
       return Boolean(this.#registre[type][key])
     }
     dispatch(key, option, type) {
-      const target = this.getHandlerEvent(key,type).filter(h=>h._key==key && h._type==type)
+      const target = this.getEventListeners(key,type).filter(h=>h._key==key && h._type==type)
       if (!target) return;
       if (!Array.isArray(target)) return;
-      console.log(type,key,target);
       const emit=()=>{
         target.forEach((handler) => {
           handler.$option=option
           if (typeof handler._func == "function") handler._func(handler);
-          // handler.$option={}
         });
       }
       if(type=='changeR'){
@@ -163,9 +170,9 @@ class TargetController {
       }
     }
     
-    on(key, func, data, type,originalHandlerEvent =data) {
+    on(key, func,toRemove, data, type,originalHandlerEvent =data) {
       this.isHandlerValid({key,func,type})
-      var send = (key) => this.createEvent(key, func,type,data,originalHandlerEvent);
+      var send = (key) => this.createEvent(key, func,toRemove,type,data,originalHandlerEvent);
       if (typeof func == "function") {
         if (typeof key == "string" || typeof key == "number") {
           return send(key);
@@ -201,8 +208,8 @@ class TargetController {
       return true
     }
 
-    // HandlerEvent.......................
-    addHandlerEvent(handler) {
+    // EventListener.......................
+    addEventListener(handler) {
       if (typeof handler != "object"){
         console.warn('the handler must be an object');
         throw 'the handler must be an object'
@@ -214,7 +221,7 @@ class TargetController {
       const { key, func, type} = handler;
       return this.on(key, func, data, type,handler);
     }
-    getHandlerEvent(key='*',type="*"){
+    getEventListeners(key='*',type="*"){
       if(!key) return []
       const registre=[]
       const pushReg=(tpe)=>{
@@ -254,24 +261,14 @@ class TargetController {
         return registre.filter(el=>el._key==key)
       }
     }
-    removeHandlerEvent(handler) {
-      var removing = (ref) => {
-        if(ref?.constructor?.name!='HandlerEventTrap') throw 'handler must be an instance of HandlerEventTrap'
-        var target = this.getHandlerEvent(ref._key,ref._type);
+    removeEventListener(type,key,func) {//----------------------
+        var target = this.getEventListeners(key,type);
         if (!target) return false;
         var index = target.findIndex((el) => el._id === ref._id);
         if (index == -1) return false;
         const handlerDeleted=target.splice(index, 1)[0]
         delete handlerDeleted.$option
-        return  {
-          ...handlerDeleted,
-          key:ref._key,
-          func:ref._func,
-          type:ref._type,
-        }
-      };
-      if (Array.isArray(handler)) return handler.map((ref) => removing(ref));
-      return removing(handler);
+        return  true
     }
 
     // Emiteur..................
@@ -342,16 +339,16 @@ class TargetController {
     }
 
     // event-listener..............
-    onKeyWillGet=((key, func, data) => this.on(key, func, data, "get")).bind(this)
-    onKeyWillSet=((key, func, data) => this.on(key, func, data, "set")).bind(this)
-    onKeyHasChange=((key, func, data) => this.on(key, func, data, "change")).bind(this)
-    onkeyWillCall=((key, func, data) => this.on(key, func, data, "call")).bind(this)
-    onKeyWillDelete=((key, func, data) => this.on(key, func, data, "delete")).bind(this)
-    onEventHasEmit=((key, func, data) => this.on(key, func, data, "emit")).bind(this)
+    onKeyWillGet=((key, func,toRemove, data) => this.on(key, func,toRemove, data, "get")).bind(this)
+    onKeyWillSet=((key, func,toRemove, data) => this.on(key, func,toRemove, data, "set")).bind(this)
+    onKeyHasChange=((key, func,toRemove, data) => this.on(key, func,toRemove, data, "change")).bind(this)
+    onkeyWillCall=((key, func,toRemove, data) => this.on(key, func,toRemove, data, "call")).bind(this)
+    onKeyWillDelete=((key, func,toRemove, data) => this.on(key, func,toRemove, data, "delete")).bind(this)
+    onEventHasEmit=((key, func,toRemove, data) => this.on(key, func,toRemove, data, "emit")).bind(this)
 
     // target...................
     #listExceptionTrap=[
-      "$on","$handlerEvent","$isTrap"
+      "$on","$eventListener","$isTrap"
     ]
     #toBind(chaine, handler ) {
       const path=chaine
@@ -413,7 +410,7 @@ class TargetController {
           return defaultReturn
         }
     }
-    getByPath=function(path,...data){
+    getStateByPath=function(path,...data){
       data.push(this.proxy)
         const defaultReturn={
           hasFinded:false,
@@ -458,16 +455,16 @@ class TargetController {
         enumerable:false,
         configurable:false
       });
-      Object.defineProperty(target, "$handlerEvent", {
+      Object.defineProperty(target, "$eventListener", {
         get:(()=>{
           const hand={
-            get:this.getHandlerEvent.bind(this),
-            remove:this.removeHandlerEvent.bind(this),
+            get:this.getEventListeners.bind(this),
+            remove:this.removeEventListener.bind(this),
           }
           hand.add=null
           Object.defineProperty(hand, "add", {
-            get:(()=>this.addHandlerEvent.bind(this)).bind(this),
-            set:this.addHandlerEvent.bind(this)
+            get:(()=>this.addEventListener.bind(this)).bind(this),
+            set:this.addEventListener.bind(this)
           })
           return hand
         }).bind(this),
@@ -479,8 +476,8 @@ class TargetController {
         enumerable:false,
         configurable:false
       })
-      Object.defineProperty(target, "$getByPath", {
-        get:(()=>this.getByPath.bind(this)).bind(this),
+      Object.defineProperty(target, "$getStateByPath", {
+        get:(()=>this.getStateByPath.bind(this)).bind(this),
         enumerable:false,
         configurable:false
       })
