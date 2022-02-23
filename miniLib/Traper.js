@@ -1,8 +1,6 @@
 class EventListener{
-  constructor(handler={type:'',key:'',func:()=>{}}){
-    const {type='',key='',func=()=>{}}=handler
-    if(!(type && key && func))return undefined
-    if(typeof func !="function")return undefined
+  constructor(type,key,func){
+
     Object.defineProperty(this,'_type',{
       value:type,
       writable:false,
@@ -18,11 +16,6 @@ class EventListener{
       writable:false,
       configurable:false
     })
-    Object.defineProperty(this,'_id',{
-      value:type+'-'+key+'-'+parseInt(Math.random()*10**6),
-      writable:false,
-      configurable:false
-    })
   }
 }
 class Trap{
@@ -34,6 +27,7 @@ class Trap{
     
     this.targetController=targetController
     this.handler=targetController.handler
+    this.EventListener=targetController.registre
   }
     get(target, key){
       if (key == "constructor") {
@@ -100,44 +94,25 @@ class TargetController {
       change: {},
       emit:{}
     };
-    proxy=new Proxy({},{})
-    #toRemoves={}
-    #addToRemoves=(type,key,toRemove)=>{
-      if(!this.#toRemoves[type])this.#toRemoves[type]={}
-      if(!this.#toRemoves[type][key])this.#toRemoves[type][key]=[]
-      this.#toRemoves[type][key].push(toRemove)
+    get registre(){
+      return this.#registre
     }
-    createEvent(key, func,toRemove,type,data={},originalHandlerEvent={}) {
+    proxy=new Proxy({},{})
+    createEvent(key, func,willRemoveSelf=false,type,data={}) {
       const registre = this.#registre[type];
       if (!registre[key]) registre[key] = [];
-      const handler=new EventListener({func,type,key})
-
-      
-
+      const handler=new EventListener(type,key,func)
       registre[key].push(handler);
       const position=()=>registre[key].indexOf(handler)
-      Object.assign(handler,data)
-      Object.defineProperty(handler,'_originalHandlerEvent',{
-        value:originalHandlerEvent,
-        writable:false
-      })
-      Object.defineProperty(handler,'_get',{
-        get:this.getEventListeners.bind(this),
-      })
-      Object.defineProperty(handler,'_remove',{
-        value:this.removeEventListener.bind(this),
-        writable:false
-      })
-      Object.defineProperty(handler,'_position',{
+      handler.data=data
+      handler.willRemoveSelf=willRemoveSelf
+      Object.defineProperty(handler,'_index',{
         get:position.bind(this)
       })
-      Object.defineProperty(handler,'_lenOfRegistreHandlerEvent',{
+      Object.defineProperty(handler,'_eventLen',{
         get:(()=>{return registre[key].length}).bind(this)
       })
-      Object.defineProperty(handler,'_targetType',{
-        value:this.target.constructor?.name
-      })
-      Object.defineProperty(handler,'_target',{
+      Object.defineProperty(handler,'_originalTarget',{
         value:this.target
       })
       
@@ -235,10 +210,9 @@ class TargetController {
           }
         }
       }
-      
       if(type=="*"){
-        for(let at in this.registre){
-          const reg=this.registre[at]
+        for(let at in this.#registre){
+          const reg=this.#registre[at]
           for(let att in reg){
             reg[att].forEach(el=>{
               registre.push(el)
@@ -262,12 +236,13 @@ class TargetController {
       }
     }
     removeEventListener(type,key,func) {//----------------------
-        var target = this.getEventListeners(key,type);
+        var target = this.#registre[type]?.[key];
         if (!target) return false;
-        var index = target.findIndex((el) => el._id === ref._id);
+        var index = target.findIndex((el) => el._func === func);
         if (index == -1) return false;
         const handlerDeleted=target.splice(index, 1)[0]
         delete handlerDeleted.$option
+        if(target.length==0) delete this.#registre[type][key]
         return  true
     }
 
@@ -330,7 +305,21 @@ class TargetController {
       if(typeof handler.onDelete=='function') handler.onDelete(option,target,this.target)
       
       target[key] = option.value;
-      if(!option.break) delete target[key];
+      if(!option.break){
+        delete target[key];
+        var target=this.getEventListeners(key)
+        target.forEach(ev=>{
+          if(ev.willRemoveSelf){
+            if(typeof ev.willRemoveSelf=='function'){
+              if(ev.willRemoveSelf()){
+                if(!this.removeEventListener(ev._type,ev._key,ev._func)){throw 'Bug interne'}
+              }
+            }else{
+              if(!this.removeEventListener(ev._type,ev._key,ev._func)){throw 'Bug interne'}
+            }
+          }
+        })
+      }
       return !option.break
     }
     emitCustomEvent(eventName,option={}){

@@ -1,7 +1,17 @@
 // eslint-disable-next-line no-unused-vars
 class Domlib {
-  constructor({ el, data = {}}) {
-
+  constructor(handler={el:undefined,data:{},methodes:{}}) {
+    const {el,data,methodes}=handler
+    delete handler.el
+    delete handler.data
+    delete handler.methodes
+    const handlerTrap=new Domlib.TrapLib({
+      ...handler,...data,...methodes
+    })
+    this;
+    console.log(handlerTrap);
+    (new Domlib.#Core).attachElement(el,handlerTrap)
+    return handlerTrap
   }
   
   static #Core = class Core{
@@ -46,7 +56,7 @@ class Domlib {
     };
     ElConsole=class ElConsole {
       constructor(el, logName = "Pretty-Console", logTitle = "log-title") {
-        this.el = el;
+        this.el = Domlib.createElement(el.outerHTML);
         this.logName = logName;
         this.logTitle = logTitle;
       }
@@ -62,6 +72,8 @@ class Domlib {
       handler=null
       attr=null
       target=null
+      lastState=null
+      nameState=null
 
       attrName = "";
       attrNameOrValue = "name";
@@ -89,7 +101,7 @@ class Domlib {
         isTypeArray:(handler,target,attr)=>{
           if(!Array.isArray(target)) return{
             logMessage:'Reference Error',
-            attrExpression:`Array.isArray(${handler.constructor.name}.${attr.value})=`,
+            attrExpression:`Array.isArray(${handler.constructor.name}.${attr.value})->`,
             attrMessage:Array.isArray(target),
             message:{
               french:`'${handler.constructor.name}.${attr.value}': doit  être de type tableau`,
@@ -102,7 +114,7 @@ class Domlib {
         isTypeObject:(handler,target,attr)=>{
           if(typeof target!='object') return{
             logMessage:'Type Error',
-            attrExpression:`typeof ${handler.constructor.name}.${attr.value}=`,
+            attrExpression:`typeof ${handler.constructor.name}.${attr.value}->`,
             attrMessage:typeof target,
             message:{
               french:`'${handler.constructor.name}.${attr.value}': doit être type objet`,
@@ -115,7 +127,7 @@ class Domlib {
         isTypeFunction:(handler,target,attr)=>{
           if(typeof target!='function') return{
             logMessage:'Type Error',
-            attrExpression:`typeof ${handler.constructor.name}.${attr.value}=`,
+            attrExpression:`typeof ${handler.constructor.name}.${attr.value}->`,
             attrMessage:typeof target,
             message:{
               french:`'${handler.constructor.name}.${attr.value}': doit être type fonction`,
@@ -127,14 +139,21 @@ class Domlib {
         },
       }
       getLogByRule(rule){
-        const result=ElConsole.restrictionExpression[rule]?.(this.handler,this.target,this.attr)
+        const restriction=ElConsole.restrictionExpression[rule]
+        if(!restriction){
+          console.warn(`rule '${rule}' is no valid`)
+          console.log('list rule valid are:',Object.keys(ElConsole.restrictionExpression))
+          throw `rule '${rule}' is no valid`
+        }
+        
+        const result=restriction?.(this.handler,this.lastState?.[this.nameState],this.attr)
             if(result!==true){
               return [[
                 ...this.getLogFull({
                   attrNameOrValue:'value',
                   ...result
                 })
-                ],result.msgThrow]
+                ],result?.msgThrow]
             }
             return false
       }
@@ -181,6 +200,7 @@ class Domlib {
         return outerHTML.join(" ");
       }
       get listStyleEl() {
+        
         return [
           ...this.styleEl,
           ...this._listStyleAttr(this.el.attributes.length),
@@ -378,25 +398,63 @@ class Domlib {
         )
         const data=lastState
         if (!data || !data.$isTrap) {
-          console.log(data,lastState);
           textChild.data = `{${textChild.data} undefined\}`;
           return;
         }
         const value = data[name];
-        this.#attachRoot({ textChild, data, name, value ,handlerNode});
+        const dico={
+          dynamic:dicoD,
+          static:dicoS
+        }
+        this.#attachRoot({ textChild, data, name, value ,handlerNode,dico});
       }
-      static #attachRoot({ textChild, data, name, value ,handlerNode}, addEv = true, opt = {}) {
+      static #attachRoot({ textChild, data, name, value ,handlerNode,dico}, addEv = true, opt = {}) {
         if (Array.isArray(value))
           return this.#attachArray(
-            { textChild, data, name, handlerArray:value,handlerNode },
+            { textChild, data, name, handlerArray:value,handlerNode,dico },
             addEv,
             opt
           );
+        if(typeof value=='object')
+        return this.#attachObject(
+          { textChild, data, name, handlerArray:value,handlerNode ,dico},
+          addEv,
+          opt
+        );
         this.#attachDefault({ textChild, data, name, value,handlerNode }, addEv, opt);
+      }
+      static #attachArray({ textChild, data, name, handlerArray,handlerNode,template}) {
+        if (!Array.isArray(handlerArray)) return;
+        if (!Core.isDom(textChild)) return;
+        if (!Core.isDomText(textChild)) textChild = Domlib.createElement("");
+        if(!handlerArray?.$isTrap) {
+          console.warn("the array must be a Trap")
+          throw "the array must be a Trap"
+        }
+        const {toRemoving}=this.rendArray({
+          template:template,
+          elBefore:textChild,
+          array:handlerArray,
+          handler:handlerNode
+        })
+        textChild.data = "";
+        const onChange=(handlerEvent) => {
+          toRemoving();
+          const value=handlerEvent.$option.newValue
+          data.$eventListener.remove('change',name,onChange)
+          this.#attachRoot({ textChild, data, name, value });
+        }
+        data.$on.change(name,onChange,()=>{
+          toRemoving();
+          return true
+        });
       }
       static rendArray({template,elBefore,array,handler,dico}){
         const listElement=[]
         const regElement={}
+        const comment=document.createComment('For')
+        elBefore.after(comment)
+        elBefore=comment
         const attachEl=(el,index,h)=>{
           if(template){
             if(handler.$isTrap)(new Core).attachElement(el,h,{
@@ -410,25 +468,25 @@ class Domlib {
               array:dico?.array
             })
           }else{
-            if(handler?.$isTrap)(new Core).attachElement(el,h)
+            if(handler?.$isTrap)(new Core).attachElement(el,h,dico)
             else return 
           }
         }
         const rendEl=(index,value)=>{
           const _el=Domlib.createElement(template||value)
-          
-          // if(Core.isDomText(_el))_el.data+=','
           if(isNaN(Number(index))){
             if(regElement[index]){
               regElement[index].before(_el)
               regElement[index].remove()
             }else{
-              textChild.after(_el)
+              elBefore.after(_el)
             }
           }else if(index in listElement){
             listElement[index].before(_el)
             listElement[index].remove()
-          } else {
+          }else if(listElement.length==index){
+            elBefore.before(_el);
+          }else {
             var _key = -1;
             for (
               let i = index, u = index;
@@ -459,59 +517,59 @@ class Domlib {
           listElement[index]=_el
           return _el
         }
-        array.forEach((val, index) =>{
-          const el=rendEl(index,val)
-          attachEl(el,index,handler)
-        });
+        // array.forEach((val, index) =>{
+
+        //   const el=rendEl(index,val)
+        //   attachEl(el,index,handler)
+        // });
+        for(let index in array){
+            const el=rendEl(index,array[index])
+            attachEl(el,index,handler)
+        }
         
-        const handlerChange = array.$on.change( "*",(handlerEvent) =>{
+        array.$on.change( "*",(handlerEvent) =>{
           if(template){
-            if(handlerEvent.$option.key in listElement) return
+            if(listElement[handlerEvent.$option.key]) return
           }
           const el=rendEl(handlerEvent.$option.key,handlerEvent.$option.value)
           attachEl(el,handlerEvent.$option.key,handler)
         });
-        const handlerDelete = array.$on.delete("*", (handlerEvent) => rendEl(handlerEvent.$option.key,''));
+        array.$on.delete("*", (handlerEvent) => rendEl(handlerEvent.$option.key,''));
         const toRemoving = () => {
           listElement.forEach((el) => el.remove());
           for(let at in regElement){regElement[at].remove()}
         };
-        return{
-          handlerChange,handlerDelete,toRemoving
-        }
+        return{toRemoving}
       }
-      static #attachArray({ textChild, data, name, handlerArray,handlerNode,template}) {
-        if (!Array.isArray(handlerArray)) return;
+      static #attachObject({ textChild,dico, data, name, handlerArray,handlerNode,template}) {
+        if (typeof handlerArray!='object') return;
         if (!Core.isDom(textChild)) return;
         if (!Core.isDomText(textChild)) textChild = Domlib.createElement("");
         if(!handlerArray?.$isTrap) {
           console.warn("the array must be a Trap")
           throw "the array must be a Trap"
         }
-        const {
-          handlerChange,handlerDelete,toRemoving
-        }=this.rendArray({
-          template:template,
-          elBefore:textChild,
-          array:handlerArray,
-          handler:handlerNode
-        })
+        const path=dico.dynamic[textChild.data.replace(/\s*/g,'')]
+        ??dico.static[textChild.data.replace(/\s*/g,'')]??textChild.data.replace(/\s*/g,'')
+        var elText="{"
+        for(let key in data[name]){
+          elText+=`,'${key}':{{${path}.${key}}}`
+        } 
+        elText+="}"
+        elText=Domlib.createElement(elText.replace(',',''))
         textChild.data = "";
-        const handlerData = data.$on.change(name, (handlerEvent) => {
-          toRemoving();
-          this.#attachRoot({ textChild, data, name, value: handlerEvent.$option.newValue });
-        });
-        data.$on.delete(name, (handlerEvent) => {
-          toRemoving();
-          handlerArray._remove(handlerChange),
-          handlerArray._remove(handlerDelete),
-          handlerEvent._remove(handlerData);
-          textChild.remove();
-          Promise.resolve().then(() => {
-            handlerEvent._remove(handlerEvent)
-          });
+        textChild.after(elText)
+        HTMLText.attachData(elText,handlerNode)
+        const onChange=(handlerEvent) => {
+          const value=handlerEvent.$option.newValue
+          data.$eventListener.remove('change',name,onChange)
+          this.#attachRoot({ textChild, data, name, value });
+        }
+        data.$on.change(name,onChange,()=>{
+          return true
         });
       }
+      
       static #attachDefault({ textChild, data,name, value ,handlerNode}, addEv = true, opt) {
         if (!Core.isDom(textChild)) return;
         const key=name
@@ -532,39 +590,32 @@ class Domlib {
         textChild=init(textChild,value);
         if (opt._el) opt._el = textChild;
         if (!addEv) return;
-        // if(Array.isArray(data)) return
         var elVar=textChild
-        const handlerChange = data.$on.change(
-          key,
-          (handlerEvent) => {
-            if (Array.isArray(handlerEvent.$option.newValue)) {
-              data.$remove(handlerDelete);
-              handlerEvent.remove;
-              this.#attachArray(
-                { textChild, data, name, value: handlerEvent.$option.newValue },
-                addEv,
-                opt
-              );
-            } else {
-              const newEl=Domlib.createElement(handlerEvent.$option.newValue)
-              if(handlerEvent.els.nodeName==newEl.nodeName && newEl.nodeName=="#text"){
-                handlerEvent.els.data=handlerEvent.$option.newValue
-                return
-              }
-              handlerEvent.els=init(handlerEvent.els,handlerEvent.$option.newValue);
-              elVar=handlerEvent.els
+        
+        const onChange=(ev)=>{
+          if (Array.isArray(ev.$option.newValue)) {
+            const value=ev.$option.newValue
+            data.$eventListener.remove('change',key,onChange)
+            this.#attachArray({ textChild:elVar, data, name:key, handlerArray:value,handlerNode})
+          } else {
+            const newEl=Domlib.createElement(ev.$option.newValue)
+            if(ev.data.els.nodeName==newEl.nodeName && newEl.nodeName=="#text"){
+              ev.data.els.data=ev.$option.newValue
+              return
             }
-          },
-          {
-            els: textChild,
+            ev.data.els=init(ev.data.els,ev.$option.newValue);
+            elVar=ev.data.els
           }
+        }
+        data.$on.change(key,onChange,
+          ()=>{
+            init(elVar,"").remove()
+            return true
+          },
+            {
+              els: textChild,
+            }
         );
-
-        const handlerDelete = data.$on.delete(name, (handlerEvent) => {
-          handlerEvent._remove(handlerChange);
-          Promise.resolve().then(() => handlerEvent._remove(handlerEvent));
-          init(elVar,"").remove();
-        });
       }
     }
     HTMLComponent = class HTMLComponent {
@@ -618,30 +669,46 @@ class Domlib {
           handler.handlerParents=null
         }
       }
+      initDirecctive(localName,directives){
+        (new Core).HTMLDirective.createDirectiveComponent(localName,directives)
+      }
     };
     HTMLDirective = class HTMLDirective {
       static listDirectiveNoRendChild=['for','switch']
-      static Directive=class Directive {
-        constructor({directiveName,onInit,regex=directiveName}){
-          this.directiveName=directiveName
-          this.onInit=onInit
-          if(!this.isDirectiveValid({directiveName,onInit,reg:regex})){
-            return {}
+      static create(directiveName,onInit,option,toSave=true){
+        this.isDirectiveValid({
+          directiveName:"directive-"+directiveName,onInit,reg:directiveName
+        })
+        const model={
+          directiveName:"directive-"+directiveName,
+          restriction:[...option?.restriction??[]],
+          reg:directiveName,
+          regex:this.createRegexValid(directiveName),
+          data:option?.data??{},
+          directive:{
+            directiveName:"directive-"+directiveName,
+            onInit,
           }
-          HTMLDirective.#directiveCustom.push({
-            directiveName, ///ETOOO ZA ZAO
-            reg:regex,
-            regex:HTMLDirective.createRegexValid(regex),
-            data:{},
-            directive:this
-          })
         }
+        if(toSave)this.#directiveCustom.push(model);
+        return model
       }
       static createRegexValid(regx){
         // eslint-disable-next-line no-useless-escape
         return new RegExp('^'+regx.toString()+`:(\.?([A-z]+[-_]*)+(\.[A-z]+[-_]*)*)?`)
       }
+      static directiveComponent={}
+      static createDirectiveComponent(ComponentName,directives){
+        if(this.directiveComponent[ComponentName]){
+          console.warn('Bug');
+        }
+        this.directiveComponent[ComponentName]=[]
+        for(let [name,value] of Object.entries(directives)){
+          this.directiveComponent[ComponentName].push(this.create(name,value?.onInit,value,false))
+        }
+      }
       
+
       static #directiveNative=[
         { //directive-model []
 
@@ -666,8 +733,6 @@ class Domlib {
             onInit:(el,attr,option)=>{
               const pc=new (new Core).ElConsole(el,option.handler.localName,'Directive.Bind')
               pc.attrName=attr.name
-              
-              var isBind=false
               const {lastState,name}=option.attachment
               const getValue=()=>el.value??el.getAttribute('value')??el[option.opt]??el.getAttribute(option.opt)
               const type={
@@ -760,17 +825,11 @@ class Domlib {
                   }
                   addEvent()
                   rendAttr()
-                  if(lastState.$isTrapLib){
-                    const onChange=lastState.$on.change(name,()=>{rendAttr()})
-                    const onDelete=lastState.$on.delete(name,()=>{
-                      lastState.$handlerEvent.remove(onChange)
-                      Promise.resolve().then(()=>lastState.$handlerEvent.remove(onDelete))
-                    })
-                  }
+                  lastState.$on.change(name,rendAttr,true)
                 }
               }
               var tpe=el.type ?? el.getAttribute('type')
-              if(option.opts.length==1){
+              if(option.opts.length==1 || !option.opts.length){
                 type.default()
               }
               if(tpe){
@@ -847,8 +906,7 @@ class Domlib {
               lastState.$on.change(name,(option)=>{
                 removeEvent()
                 if(typeof option.value=='function')createEvent()
-              })
-              lastState.$on.delete(name,()=>removeEvent())
+              },removeEvent)
             },
           }
         },
@@ -915,7 +973,9 @@ class Domlib {
               const comment=document.createComment(` ${el.localName}[${attr.name}='${attr.value}']:=>is-${!(option.opt=='true')} `)
               el.after(comment)
               const rendComment=()=>(el.after(comment),el.remove())
-              const rendEl=()=>(comment.after(el),comment.remove())
+              const rendEl=()=>{
+                comment.after(el),comment.remove()
+              }
               const init=()=>{
                 if(option.opt=='false'){
                   if(lastState[name])return rendComment()
@@ -925,8 +985,7 @@ class Domlib {
                 rendEl()
               }
               init()
-              lastState.$on.change(name,()=>init())
-              lastState.$on.delete(name,()=>init())
+              lastState.$on?.change?.(name,init,init)
             },
           }
         },
@@ -951,39 +1010,42 @@ class Domlib {
             onInit:(el,attr,option)=>{
               const {lastState,name}=option.attachment
               var handler=lastState[name]
-              var listHev=[]
+              const onChange=(option)=>{
+                el.style[option.$option.key]=option.$option.value
+              }
+              const onDelete=(option)=>{
+                el.style[option.$option.key]=""
+              }
               const removeEv=(obj=handler)=>{
                 for (const [key, value] of Object.entries(obj)) {
                   el.style[key]=""
                 }
-                listHev.forEach(h=>obj.$handlerEvent.remove(h))
-                listHev=[]
+                console.log(obj);
+                obj.$eventListener.remove('change','*',onChange)
+                obj.$eventListener.remove('delete','*',onDelete)
               }
               const iniEv=(obj=handler)=>{
-                removeEv(obj===handler?{}:handler)
+                removeEv(obj===handler?new Traper:handler)
                 handler=obj
                 Object.assign(el.style,obj)
-                listHev=[
-                obj.$on.change('*',(option)=>{
-                  el.style[option.$option.key]=option.$option.value
-                }),
-                obj.$on.delete('*',(option)=>{
-                  el.style[option.$option.key]=""
-                })
-                ]
+                obj.$on.change('*',onChange)
+                obj.$on.delete('*',onDelete)
               }
               iniEv(handler)
               var isRemoved=false
-              const hEv=lastState.$on.change(name,(option)=>{
+              lastState.$on.change(name,(ev)=>{
                 if(isRemoved) return
-                if(typeof option.$option.value=='object'){
-                  iniEv(option.$option.value)
-                }
-              })
-              lastState.$on.delete(name,()=>{
-                const result=lastState.$handlerEvent.remove(hEv)
+                const logs=option.pc.getLogByRule('isTypeObject')
+                    if(logs){
+                      console.warn(...logs[0]);
+                      throw logs[1]
+                    }
+                iniEv(ev.$option.value)
+              },
+              ()=>{
                 removeEv()
                 isRemoved=true
+                return true
               })
             },
           }
@@ -1041,29 +1103,28 @@ class Domlib {
                 }
               }
               rendEl()
-              const onChange=lastState.$on.change(name,rendEl)
-              const onDelete=lastState.$on.delete(name,()=>{
-                lastState.$handlerEvent.remove(onChange)
-                Promise.resolve().then(()=>lastState.$handlerEvent.remove(onDelete))
-              })
+              lastState.$on.change(name,rendEl,true)
             },
           }
         },
         { // 9-directive-for []
           directiveName:'directive-for',
-          restriction:['isNoUndefined','isTypeArray'],
+          restriction:['isNoUndefined'],
           reg:'for',
           regex:this.createRegexValid('for'),
           data:{},
           directive:{
             directiveName:'directive-for',
             onInit:(el,attr,option)=>{
+              const {lastState,name}=option.attachment
+              const comment=document.createComment('for'+attr.value)
+              var toRemoving
               const rendLoup=(el,data,path,attr)=>{
                 el.removeAttributeNode(attr)
                 var {outerHTML:template}=el
                 const opts=attr.name.slice(attr.name.indexOf(':')+1).split('.').filter(e=>e)
                 const core=new Core
-                core.HTMLText.rendArray({
+                const ob=core.HTMLText.rendArray({
                   elBefore:el,
                   template,
                   array:data,
@@ -1074,8 +1135,19 @@ class Domlib {
                   }
                 })
                 el.remove()
+                return ob.toRemoving
               }
-              rendLoup(el,option.attachment.value,option.attachment.path,attr)
+              toRemoving=rendLoup(el,lastState[name],option.attachment.path,attr)
+              const onChange=(handlerEvent) => {
+                toRemoving();
+                const value=handlerEvent.$option.newValue
+                lastState.$eventListener.remove('change',name,onChange)
+                toRemoving=rendLoup(el,lastState[name],option.attachment.path,attr)
+              }
+              lastState.$on.change(name,onChange,()=>{
+                toRemoving();
+                return true
+              });
             },
           }
         },
@@ -1121,9 +1193,10 @@ class Domlib {
         return this.#directiveNative.find(corresp=>corresp.directiveName==directiveName)
                 ||this.#directiveCustom.find(corresp=>corresp.directiveName==directiveName)
       }
-      static getByRegex=function(stringExpression){
+      static getByRegex=function(stringExpression,localName){
         return this.#directiveNative.find(corresp=>corresp.regex.test(stringExpression))
               || this.#directiveCustom.find(corresp=>corresp.regex.test(stringExpression))
+              || this.directiveComponent?.[localName]?.find(corresp=>corresp.regex.test(stringExpression))
       }
       static hasRegex=function(reg){
         if(!reg)return false
@@ -1148,13 +1221,14 @@ class Domlib {
       }
     }
     attachFragment(htmlElement,handler,dico={dynamic:{},static:{}}){
+      var option
       if (Core.isDomElement(htmlElement)&&htmlElement.getAttributeNode("no:rend")) return;
-      [...htmlElement.childNodes].filter(child=>{
+      [...htmlElement.childNodes].forEach(child=>{
           if(Core.isDomText(child)){
             this.HTMLText.attachData(child, handler,dico)
             return false
           }
-          const option=this.attachDirective(child, handler,dico)
+          option=this.attachDirective(child, handler,dico)
           if(option.rendChild)this.attachFragment(child,handler,dico)
           return true
         })
@@ -1162,12 +1236,14 @@ class Domlib {
     attachDirective(htmlElement,handler,dico={dynamic:{},static:{}}){
       const attrs=[...htmlElement.attributes]
       var rendChild=true
+      var hasFindDirectiveFor=false
       attrs.forEach(attr=>{
-        const directiveHandler=this.HTMLDirective.getByRegex(attr.name)
-        if(directiveHandler){
+        const directiveHandler=this.HTMLDirective.getByRegex(attr.name,handler.localName)
+        if(!hasFindDirectiveFor && directiveHandler){
           const pc=new (new Core).ElConsole(htmlElement,handler.localName,'Directive')
           pc.attrName=attr.name
           const directiveName=attr.name.slice(0,attr.name.indexOf(':') != -1?attr.name.indexOf(':'):undefined)
+          if(directiveName=='for') hasFindDirectiveFor=true
           const opts=attr.name.slice(attr.name.indexOf(':')+1).split('.').filter(e=>e)
           const {data,directive }=directiveHandler
           var attachment={}
@@ -1192,6 +1268,8 @@ class Domlib {
             pc.attr=attr
             pc.target=attachment.value
             pc.logTitle='Directive.'+(directiveName||'bind')
+            pc.lastState=attachment.lastState
+            pc.nameState=attachment.name
             const logs=pc.getLogByRule(rule)
             if(logs){
               console.warn(...logs[0]);
@@ -1211,6 +1289,7 @@ class Domlib {
           if(this.HTMLDirective.listDirectiveNoRendChild.includes(directiveName)){
             rendChild=false
           }
+          htmlElement.removeAttribute(attr.name)
         }
       })
       return {
@@ -1222,14 +1301,15 @@ class Domlib {
       console.warn('the handler must an instance of Domlib.TrapLib or Traper');
       throw 'the handler must an instance of Domlib.TrapLib or Traper'
     }
+    if(Core.isDomElement(htmlElement)) {
+      if (htmlElement.attributes.length) {
+        const option=this.attachDirective(htmlElement,handler,dico);
+        if(!option.rendChild) return
+      }
+    }
     if(!Core.isDomElement(htmlElement) && !Core.isDomFragment(htmlElement)) return
     this.attachFragment(htmlElement,handler,dico);
     
-    if(Core.isDomElement(htmlElement)) {
-      if (htmlElement.attributes.length) {
-        this.attachDirective(htmlElement,handler,dico);
-      }
-    }
     return handler
 
     }
@@ -1259,10 +1339,10 @@ class Domlib {
           component.initProps(this, this.#handler,props);
           const fastHandler=Core.fastHandler
           component.initParentAndChilds(fastHandler,this.#handler)
-          
-        const rend = this.#handler.render(this.#handler) || `<h1>Hello ${this.localName} </h1>`;
-        this.#handler.template = this.attachShadow({mode: 'open'});
-        Core.fastHandler=this.#handler
+          const rend = this.#handler.render(this.#handler) || `<h1>Hello ${this.localName} </h1>`;
+          this.#handler.template = this.attachShadow({mode: 'open'});
+          Core.fastHandler=this.#handler
+          component.initDirecctive(this.#handler.localName,this.#handler.directive)
         if (Core.isDom(rend)) {
           this.#handler.template.append(rend);
         } else {
@@ -1363,6 +1443,7 @@ class Domlib {
 
       })
     }
+    directive={}
     render(func){}
     onMounted=function(func){}
     isMounted=false
@@ -1393,10 +1474,18 @@ class Domlib {
     if (Array.isArray(HTMLString)) {
       return HTMLString.map((str) => Domlib.createElement(str));
     }
-    if (typeof HTMLString == "object") return JSON.stringify(HTMLString);
+    if (typeof HTMLString == "object") {
+      try {
+        return Domlib.createElement(JSON.stringify(HTMLString))
+      } catch (error) {
+        return Domlib.createElement(HTMLString?.toString?.()||"[Object "+HTMLString?.constructor?.name+"]")
+      }
+    }
     return strToHTMLElement(HTMLString) || new Text(HTMLString);
   };
-  static createDirective = function () {};
+  static createDirective = function (directiveName,onInit,option={restriction:[],data:{}}) {
+    return (new this.#Core).HTMLDirective.create(directiveName,onInit,option)
+  };
   static build = function (funcConstructor) {
     if (Object.getPrototypeOf(funcConstructor) !== Domlib.Element) {
       console.warn(`the class ${funcConstructor.name} must extends Domlib.Element`);
