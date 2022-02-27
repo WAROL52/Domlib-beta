@@ -115,7 +115,10 @@ class TargetController {
       Object.defineProperty(handler,'_originalTarget',{
         value:this.target
       })
-      
+      Object.defineProperty(handler,'_remove',{
+        value:(()=>{return this.removeEventListener(type,key,func)}).bind(this),
+        writable:false
+      })
       return handler
     }
     get listType(){
@@ -367,7 +370,7 @@ class TargetController {
               path,
               args:arg?.split?.(",")||[],
               name:chaine,
-              value:handler[chaine],
+              get value(){return handler[chaine]},
               firstState:handler,
               lastState:handler
             }: defaultReturn;
@@ -392,7 +395,7 @@ class TargetController {
               path,
               args:arg?.split?.(",")||[],
               name:chaine,
-              value:value[chaine],
+              get value(){return value[chaine]},
               firstState:handler,
               lastState:value
             };
