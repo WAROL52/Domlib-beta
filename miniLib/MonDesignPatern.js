@@ -176,7 +176,7 @@ convertDataToSpan = function (data) {
     } else {
       return Domlib.createElement(`<span>${data.constructor.name}: ${data}</span>`);
     }
-  }
+}
 Singleton//  c'est une classe qui construit conformément un object et  garantie qu'il n'existe qu'une et une seule instance de l'object en mémoire
 Abstract//  c'est une classe qui n'est pas instanciable. Elle sert de base à d'autres classes dérivées (héritées).
 classProxy// c'est une class qui controle l'acces et modification  ses methodes et attributes

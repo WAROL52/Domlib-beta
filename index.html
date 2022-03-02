@@ -9,11 +9,38 @@
     <script src="Domlib.js"></script>
 </head>
 <body>
-    <todo-list></todo-list>
-    <div id="app" on:click="saluer" >
-        {{nom}}
-        {{data}}
-    </div>
+
+
+    <todo-list>
+        za koa mba misy
+    </todo-list>
+
+
+
+    <!-- <el-app></el-app> -->
+
+
+
+
+    <!-- <div id="app" >
+        <div>
+            <h1 >Ma todolist</h1>
+            <label for="">
+                <input type="checkbox" :checked.input="showCompleted">
+                Afficher les tâches Completées | {{showCompleted}}
+            </label>
+            <ul>
+                <li for:todo="filteredTodo"  >
+                    <input type="checkbox"  :checked.input="todo.completed" >{{todo.name}} 
+                </li>
+            </ul>
+            new todo :{{newTodo}} <br>
+            <input   :value.input="newTodo">
+            <button on:click="addTodo"  >Ajouter</button>
+            <br>
+            {{todos}}
+        </div>
+    </div> -->
     <script src="script.js" ></script>
 </body>
 </html>

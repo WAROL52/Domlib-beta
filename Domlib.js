@@ -1,10 +1,31 @@
 // eslint-disable-next-line no-unused-vars
+
+
 class Domlib {
+  /**
+ * @param {Object} option 
+ * @param {HTMLElement} option.el - Element valid
+ * @param {constructor} option.handler - Function constructor
+ * create an element model
+ * @example 
+ * // return object handler
+ *const em=new Domlib({
+ *    el:document.querySelector('#app'),
+ *    handler:class extends Domlib.Element{
+ *      a:1,
+ *      b:"b"
+ *    }
+ *})
+ */
   constructor({el,handler}) {
-    if(Object.getPrototypeOf(handler)!=Domlib.Element){
-      const smg='the prototype of handler must be Domlib.Element'
-      console.warn(smg);
-      throw smg
+    if(!Traper.isConstructor(handler)){
+      const msg="handler must be a constructor"
+      console.warn(msg);
+      throw msggggg
+    }
+    if (Object.getPrototypeOf(handler) !== Domlib.Element) {
+      console.warn(`the class ${handler.name} must extends Domlib.Element`);
+      throw `the class ${func.name} must extends Domlib.Element`;
     }
     handler=new Domlib.TrapLib(new handler)
     const core=new Domlib.#Core
@@ -19,45 +40,43 @@ class Domlib {
     static TrapLib = class {
       constructor(target = {}, handler={},listExc = []) {
         if (!target) return target;
-  
-        if(target['$isTrapLib']) {
-          for (let at in target) {
-            if (typeof target[at] == "object") {
+        if (Core.isDom(target)) return target;
+        const pushTraplib=(trap)=>{
+          for (let at in trap) {
+            if (typeof trap[at] == "object") {
               const index = listExc.indexOf(at);
-              if (index == -1 && !target[at]?.$isTrapLib) {
-                target[at] = new this.constructor(target[at]);
+              if (index == -1 ) {
+                trap[at] = new this.constructor(trap[at]);
               }
             }
           }
+        }
+        
+        if(target['$isTrapLib']) {
+          pushTraplib(target)
           return target
         }
-        if (Core.isDomElement(target)) return target;
-        if (Core.isDomText(target)) return target;
-        if (Core.isDomFragment(target)) return target;
+        
         if(typeof handler=='object'){
           Object.assign(this,handler)
         }
+
         this.onSet=(option,t,h)=>{
           handler?.onSet?.(option,t,h)
           if (typeof option.newValue == "object") {
             option.newValue = new this.constructor(option.newValue);
           }
         }
+
         const trap = target.$isTrap?target:  new Traper(target, this);
+
         Object.defineProperty(target,'$isTrapLib',{
           value:true,
           writable:false,
           configurable:false,
           enumerable:false
         })
-        for (let at in trap) {
-          if (typeof trap[at] == "object") {
-            const index = listExc.indexOf(at);
-            if (index == -1 && !trap[at]?.$isTrapLib) {
-              trap[at] = new this.constructor(trap[at]);
-            }
-          }
-        }
+        pushTraplib(trap)
         return trap;
       }
     };
@@ -67,6 +86,7 @@ class Domlib {
         this.logName = logName;
         this.logTitle = logTitle;
       }
+      
       colorAttrMessage = "gray";
       colorAttrExpression = "#BACCD8";
       colorAttrTarget = "red";
@@ -99,7 +119,8 @@ class Domlib {
             attrMessage:'undefined',
             message:{
               french:`'${handler.constructor.name}.${attr.value}': ne doit pas être null`,
-              english:`'${handler.constructor.name}.${attr.value}':must not be null`
+              english:`'${handler.constructor.name}.${attr.value}':must not be null`,
+              malagasy:`ana tô ma rah nagnino , tsy mahay rah DEHORS!! `
             },
             msgThrow:`In ${handler.localName}[${attr.name}='${attr.value}'] : '${attr.value}' is not defined `
           }
@@ -405,9 +426,16 @@ class Domlib {
         });
         return listChilds;
       }
-      static #attachTextChild(textChild, handlerNode ,dicoD={},dicoS={},option) {
+      static #attachTextChild(textChild, handlerNode ,dicoD={},dicoS={},option={}) {
         if (!Core.isDomText(textChild)) return;
         textChild.data=textChild.data.replace(/\s*/g,'')
+        const operator=[]
+        if(textChild.data.slice(0,3)=="..."){
+          textChild.data=textChild.data.slice(3)
+          operator.push('...')
+        }
+
+
         const getPathD=()=>{
           const list=textChild.data.split('.')
           if(list.length==1) return dicoD[textChild.data]??textChild.data
@@ -432,11 +460,12 @@ class Domlib {
           dynamic:dicoD,
           static:dicoS
         }
+        attachment.operator=operator
         return this.#attachRoot({text:textChild,dico,attachment,template:undefined,option});
       }
       static #attachRoot({text,dico,attachment,template,option}) {
         if (Core.isDom(attachment.value)){
-          return console.warn('fonctionnalité pas encore implementé')
+          return new this.RenderTextElement({text,dico,attachment,template,option})
         }
         if(typeof attachment.value=='object')
         return new this.RenderTextObject({text,dico,attachment,template,option});
@@ -461,23 +490,29 @@ class Domlib {
         }
         init(){
           this.eventListener=this.lastState.$on.change(this.name,this.onChange.bind(this),this.removeEvent.bind(this))
+          this.eventListener.attachData=this.constructor.name
+          this.eventListener.target=this.value
+          if(this.option){
+            this.option.listEventListener.push(this.eventListener)
+            this.option.listFuncRemoveEvent.push(this.removeEvent)
+          }
         }
         get value(){
           return this.lastState[this.name]
         }
-        rendeNodeAfter(path){}
-        rendeNodeBefore(path){}
-        get getNodeAfter(){}
-        get getNodeBefore(){}
-
         setValueInText(value=this.value){
           if(Core.isDom(value)){
-
+            this.removeEvent()
+            new HTMLText.RenderTextElement({text:this.text,dico:this.dico,attachment:this.attachment,template:this.template})
           }else if(typeof value=='object'){
             this.removeEvent()
             new HTMLText.RenderTextObject({text:this.text,dico:this.dico,attachment:this.attachment,template:this.template})
           }else{
-            this.text.data=value
+            if(this.attachment.isString){
+              this.text.data=` "${value}"`
+            }else{
+              this.text.data=value
+            }
           }
         }
         onChange(ev){
@@ -486,7 +521,7 @@ class Domlib {
         #isRemmoved=false
         get isRemoved(){return this.#isRemmoved}
         onRemoveEv=()=>{}
-        removeEvent(){
+        removeEvent=()=>{
           if(this.isRemoved) return 
           this.#isRemmoved=true
           this.onRemoveEv()
@@ -500,18 +535,46 @@ class Domlib {
           this.setValueInText(this.value)
         }
       }
+      static RenderTextElement=class RenderTextElement extends this.RenderText{
+        constructor({ text,dico,attachment,template,option}){
+          super({ text,dico,attachment,template,option})
+          this.lastEl=this.value
+          this.setValueInText(this.value)
+        }
+        onRemoveEv=()=>{
+          this.lastEl?.remove?.()
+        }
+        setValueInText(value=this.value){
+          if(Core.isDom(value)){
+            if(value!=this.lastEl){
+              this.lastEl?.remove?.()
+              this.lastEl=value
+            }
+            this.text.after(value)
+            this.text.data=""
+          }else if(typeof value=='object'){
+            this.removeEvent()
+            new HTMLText.RenderTextObject({text:this.text,dico:this.dico,attachment:this.attachment,template:this.template})
+          }else{
+            this.removeEvent()
+            new HTMLText.RenderTextDefault({text:this.text,dico:this.dico,attachment:this.attachment,template:this.template})
+          }
+        }
+      }
       static RenderTextObject=class RenderTextObject extends this.RenderText{
         constructor({ text,dico,attachment,template,option}){
           super({ text,dico,attachment,template,option})
           this.elements=[]
           if(this.template){
             this.textFoot=new Text()
-            this.text.after(this.textFoot)
+          }else if(attachment?.operator?.includes?.('...')){
+            this.text.data=''
+            this.textFoot=new Text("")
           }else{
             this.text.data=Array.isArray(this.value)?'[':'{'
             this.textFoot=new Text(Array.isArray(this.value)?']':'}')
-            this.text.after(this.textFoot)
           }
+          this.text.after(this.textFoot)
           this.rend()
           this.onChangeEachValue=this.value.$on.change('*',(ev)=>{
             if(ev.$option.oldValue==undefined){
@@ -593,16 +656,20 @@ class Domlib {
           }else{
             const attachment=this.firstState.$getStateByPath(this.attachment.path+"."+index)
             if(Core.isDom(value)){
-  
+              return new HTMLText.RenderTextElement({text,dico:this.dico,attachment,template:this.template})
             }else if(typeof value=='object'){
               return new HTMLText.RenderTextObject({text,dico:this.dico,attachment,template:this.template})
             }else{
+              if(typeof attachment.value=='string'){
+                attachment.isString=true
+              }
               return new HTMLText.RenderTextDefault({text,dico:this.dico,attachment,template:this.template})
             }
           }
         }
         textComa(index){
           if(this.template) return new Text()
+          if(this.attachment?.operator?.includes?.('...')) return new Text() 
           return new Text(Array.isArray(this.value)
           ?this.elements.length==0?'':' ,'
           :this.elements.length==0?`"${index}":`:` ,"${index}":`)
@@ -644,7 +711,7 @@ class Domlib {
         setValueInText(ev){
           this.removeEvent()
           if(Core.isDom(this.value)){
-
+            new HTMLText.RenderTextElement({text:this.text,dico:this.dico,attachment:this.attachment,template:this.template})
           }else if(typeof this.value=='object'){
             new HTMLText.RenderTextObject({text:this.text,dico:this.dico,attachment:this.attachment,template:this.template})
           }else{
@@ -659,30 +726,78 @@ class Domlib {
         this.builder = builder;
       }
       name;
-      el;
+      instances={}
       events={
         onMounted:[]
       }
-      initChildrens(el, handler) {
-        if(el.children.length==0) return
-        handler.children=[]
-        handler.children.push(...el.children);
-        handler.children.forEach((child,index) => {
-          child=Domlib.createElement(child)
-          handler.children[index]=child
-          child.remove()
-          if (child.slot) {
-            if (!handler.slot[child.slot]) handler.slot[child.slot] = [];
-            handler.slot[child.slot].push(child);
+      initChildrens(el, handler,children) {
+        if(!handler._children['noSlot']){
+            handler._children['noSlot']=[]
+            Object.defineProperty(handler._children,'noSlot',{
+              writable:false,
+              enumerable:false
+            })
+        }
+        if(!handler._children['noSlotText']){
+          handler._children['noSlotText']=[]
+          Object.defineProperty(handler._children,'noSlotText',{
+            writable:false,
+            enumerable:false
+          })
+        }
+        if(!handler._children['noSlotElement']){
+          handler._children['noSlotElement']=[]
+          Object.defineProperty(handler._children,'noSlotElement',{
+            writable:false,
+            enumerable:false
+          })
+        }
+        const pushInNoSlot=(e)=>{
+          handler._children['noSlot'].push(e)
+          if(Core.isDomText()){
+            handler._children['noSlotText'].push(e)
+          }else{
+          handler._children['noSlotElement'].push(e)
           }
-        });
+        }
+        const initSlot=(child)=>{
+          child.forEach(e=>{
+            if(Core.isDomElement(e)){
+              const slot=e.getAttribute('slot')
+              if(slot){
+                if(handler._children[slot]&& Array.isArray(handler._children[slot])){
+                  handler._children[slot].push(e)
+                }else{
+                  handler._children[slot]=[e]
+                  Object.defineProperty(handler._children,slot,{
+                    writable:false,
+                    enumerable:false
+                  })
+                }
+              }else{
+                pushInNoSlot(e)
+              }
+            }else{
+              pushInNoSlot(e)
+            }
+          })
+        }
+        if(el.childNodes.length){
+          handler._children.push(...el.childNodes);
+          initSlot(el.childNodes)
+        }
+        if(children.length){
+          handler._children.push(...children)
+          initSlot(children)
+        }
       }
       initProps(el, handler,props) {
         for (let attr of el.attributes) {
-          handler.props[attr.name] = attr.value;
+          handler._props[attr.name] = attr.value;
         }
+        if(typeof props!='object') return
         for(let at in props){
-          handler.props[at]=props[at]
+          handler._props[at]=props[at]
         }
       }
       initParentAndChilds(fastHandler,handler){
@@ -742,7 +857,7 @@ class Domlib {
         this.directiveComponent[ComponentName]=[]
         if(!directives) return
         for(let [name,value] of Object.entries(directives)){
-          this.directiveComponent[ComponentName].push(this.create(name,value?.onInit,value,false))
+          this.directiveComponent[ComponentName].push(this.create(name,typeof value=='function'?value:value?.init,value,false))
         }
       }
       
@@ -793,22 +908,13 @@ class Domlib {
           directiveName:'directive-ref',
           restriction:[],
           reg:'ref',
-          regex:/^[#]([a-zA-Z]*[a-zA-Z_-]*[a-zA-Z]*)(:(\.[a-zA-Z]+[\w-]*)*)?/,
+          regex:this.createRegexValid('ref'),
           data:{},
           directive:{
             directiveName:'directive-ref',
             onInit:(el,attr,option)=>{
-              el.setAttribute('id',option.directiveName.slice(1))
-              if(option.handler.id[option.directiveName.slice(1)]){
-                console.warn(`In ${el.localName}[${attr.name}='${attr.value}'] : '${attr.value}' this id name has already useed`);
-                throw `In ${el.localName}[${attr.name}='${attr.value}'] : '${attr.value}' this id name has already useed `
-              }
-              option.handler.id[option.directiveName.slice(1)]=el
-              option.opts.forEach(className=>{
-                el.classList.add(className)
-                if(!Array.isArray(option.handler.className[className]))option.handler.className[className]=[]
-                option.handler.className[className].push(el)
-              })
+              if(!option.handler._ref)option.handler._ref={}
+              option.handler._ref[attr.value]=el
             },
           }
         },
@@ -1017,7 +1123,6 @@ class Domlib {
                 for (const [key, value] of Object.entries(obj)) {
                   el.style[key]=""
                 }
-                console.log(obj);
                 obj.$eventListener.remove('change','*',onChange)
                 obj.$eventListener.remove('delete','*',onDelete)
               }
@@ -1191,10 +1296,10 @@ class Domlib {
         return this.#directiveNative.find(corresp=>corresp.directiveName==directiveName)
                 ||this.#directiveCustom.find(corresp=>corresp.directiveName==directiveName)
       }
-      static getByRegex=function(stringExpression,localName){
+      static getByRegex=function(stringExpression,handler){
         return this.#directiveNative.find(corresp=>corresp.regex.test(stringExpression))
               || this.#directiveCustom.find(corresp=>corresp.regex.test(stringExpression))
-              || this.directiveComponent?.[localName]?.find(corresp=>corresp.regex.test(stringExpression))
+              || this.directiveComponent?.[handler?._el?.instanceID]?.find(corresp=>corresp.regex.test(stringExpression))
       }
       static hasRegex=function(reg){
         if(!reg)return false
@@ -1209,7 +1314,7 @@ class Domlib {
             return console.warn("directive.directiveName is not defined");
         if (typeof onInit != "function")
             return console.warn(
-              "directive.func is not defined or not a function"
+              "directive.init is not defined or not a function"
             );
         if (this.getByName(directiveName))
             return console.warn("directive.directiveName is already exist");
@@ -1222,7 +1327,7 @@ class Domlib {
       if (Core.isDomElement(htmlElement)&&htmlElement.getAttributeNode("no:rend")) return;
       [...htmlElement.childNodes].forEach(child=>{
           if(Core.isDomText(child)){
-            this.HTMLText.attachData(child, handler,dico)
+            this.HTMLText.attachData(child, handler,dico,option)
             return false
           }
           this.attachDirective(child, handler,dico,option)
@@ -1239,7 +1344,7 @@ class Domlib {
       var hasFindDirectiveFor=false
       const directiveController=htmlElement.getAttribute('directiveController')
       attrs.forEach(attr=>{
-        const directiveHandler=this.HTMLDirective.getByRegex(attr.name,handler.localName)
+        const directiveHandler=this.HTMLDirective.getByRegex(attr.name,handler)
         if(!hasFindDirectiveFor && directiveHandler){
           const pc=new (new Core).ElConsole(htmlElement,handler.localName,'Directive')
           pc.attrName=attr.name
@@ -1309,12 +1414,19 @@ class Domlib {
             option?.onEventRemove?.()
             return ev._remove()
           }
-          const ev=lastState.$on.change(name,onChange,removeEvent)
-          ev.attachDirective=directiveName||'bind'
-          listEventListener.push(ev)
-          listFuncRemoveEvent.push(removeEvent)
-          option.removeEvent=removeEvent
-          directive.onInit(htmlElement,attr,option)
+          const ev=lastState?.$on?.change?.(name,onChange,removeEvent)
+          if(ev){
+            ev.attachDirective=directiveName||'bind'
+            ev.elementTarget=htmlElement
+            ev.attributeTarget=attr
+            ev.attributeValue=attr.value
+            ev.attachmentValue=attachment.value
+            listEventListener.push(ev)
+            listFuncRemoveEvent.push(removeEvent)
+            option.removeEvent=removeEvent
+          }
+          directive.onInit.call(handler,htmlElement,attr,option)
+          // directive.onInit(htmlElement,attr,option)
           Object.assign(directiveHandler.data,data)
           if(this.HTMLDirective.listDirectiveNoRendChild.includes(directiveName)){
             rendChild=false
@@ -1354,7 +1466,6 @@ class Domlib {
     }
     static #core = null;
     
-    registre = {};
     static fastHandler=null
     defineElement(builder, builderType = "class") {
       const component = new this.HTMLComponent(builder, builderType);
@@ -1363,40 +1474,56 @@ class Domlib {
       HTMLextends =builder.extend? document.createElement(builder.extend).constructor:HTMLextends
       const defElement = class extends HTMLextends {
         #handler;
-        constructor(props,...children) {
+        #instanceID=this.localName+"-"+parseInt(Math.random()*10**10)
+        get instanceID(){return this.#instanceID}
+        constructor(_props,...children) {
           super();
           Domlib.__el= this;
           Domlib.__component=component
+          Domlib.__idEl=this.#instanceID
           this.#handler =new Domlib.TrapLib(new component.builder());
-          if(children.length){
-            if(!this.#handler.children)this.#handler.children=[];
-            this.#handler.children.push(...children)
+          this.#handler._self=this.#handler
+          component.instances[this.#instanceID]={
+            handler:this.#handler,
           }
-          this.#handler.el = this;
-          this.#handler.localName = this.localName;
-          this.#handler.elementName=builder.localName
-          this.dataPublic = {};
+          
 
-          component.initChildrens(this, this.#handler);
-          component.initProps(this, this.#handler,props);
+          this.#handler._el = this;
+          this.#handler.localName = this.localName;
+
+          component.initChildrens(this, this.#handler,children);
+          component.initProps(this, this.#handler,_props);
+
           const fastHandler=Core.fastHandler
           component.initParentAndChilds(fastHandler,this.#handler)
           const rend = this.#handler.render(this.#handler) || `<h1>Hello ${this.localName} </h1>`;
-          this.#handler.template = this.attachShadow({mode: 'open'});
+          this.#handler._template = this.attachShadow({mode: 'open'});
           Core.fastHandler=this.#handler
-          component.initDirecctive(this.#handler.localName,this.#handler.directive)
-        if (Core.isDom(rend)) {
-          this.#handler.template.append(rend);
-        } else {
-          this.#handler.template.innerHTML = rend;
+
+          component.initDirecctive(this.#instanceID,this.#handler._directives)
+
+          if (Core.isDom(rend)) {
+            this.#handler._template.append(rend);
+          } else {
+            this.#handler._template.innerHTML = rend;
+          }
+
+          Core.fastHandler=fastHandler
+
+          const eventListener=core.attachFragment(this.#handler._template,this.#handler)
+
+          component.instances[this.#instanceID].eventListener=eventListener
+          this.#handler?.onMounted?.(this.#handler)
         }
-        Core.fastHandler=fastHandler
-        core.attachFragment(this.#handler.template,this.#handler)
-        this.#handler.$emitEvent('Mounted',{})
+        connectedCallback(){
+          this.#handler?.onConnected?.(this.#handler)
         }
-        connectedCallback(){}
-        disconnectedCallback(){}
-        adoptedCallback(){}
+        disconnectedCallback(){
+          this.#handler?.onDisconnected?.(this.#handler)
+        }
+        adoptedCallback(){
+          this.#handler?.onAdopted?.(this.#handler)
+        }
         attributeChangedCallback(){}
       };
       customElements.define(builder.localName, defElement, {
@@ -1442,6 +1569,9 @@ class Domlib {
     };
   };
   static TrapLib =this.#Core.TrapLib
+  /**
+   * Abstract class
+   */
   static Element = class Element {
     static localName = "";
     static extend = "";
@@ -1454,31 +1584,67 @@ class Domlib {
       delete Domlib.__el;
       const component = Domlib.__component;
       delete Domlib.__component;
-      this.props = new Domlib.TrapLib({},{
+      const idEl = Domlib.__idEl;
+      delete Domlib.__idEl;
+      this._props = new Domlib.TrapLib({},{
         onChange: (option, _target, targProxy) => {
           Object.defineProperty(
             targProxy,
             option.key,
             Object.getOwnPropertyDescriptor(_target, option.key)
           );
-          el.setAttribute(option.key, option.value);
+          if(typeof option.value!='object'){
+            el.setAttribute(option.key, option.value);
+          }
         },
         onDelete: (option) => {
           el.removeAttribute(option.key);
         },
       })
+      this._children=[]
+      this._ref={}
+      this._directives={}
+      this.constructor.prototype.destroy=(()=>{
+        if(idEl,component.instances[idEl].eventListener){
+          const listFunc=component.instances[idEl].eventListener
+          this.onBeforeDestroy?.(component.instances[idEl].handler)
+          listFunc.listFuncRemoveEvent.forEach(fn=>fn())
+          this.onAfterDestroy?.(component.instances[idEl].handler)
+          return true
+        }
+        return false
+      }).bind(this)
       return new Domlib.TrapLib(this)
     }
-    render(func){}
-    onMounted(func){}
+    render(){}
+    onMounted(){}
+    onConnected(){}
+    onDisconnected(){}
+    onAdopted(){}
+    destroy(){
+
+    }
+    onBeforeDestroy(){}
+    onAfterDestroy(){}
   };
-  static appendChild = function (elementAppend, elementContainer = null) {
+  /**
+   * Adds a node to the end of the list of children of a specified parent node
+   * @param {Node} aChild -child node.
+   * @param {Node} [aParent=document.body] -parent node
+   * @returns {Node} -aChild
+   */
+  static appendChild = function (aChild, aParent = document.body) {
     try {
-      return elementContainer.appendChild(elementAppend);
+      return aParent.appendChild(aChild);
     } catch (e) {
-      return document.body.appendChild(elementAppend);
+      return document.body.appendChild(aChild);
     }
   };
+  /**
+   * create a html element 
+   * @param {(string|string[])} HTMLString 
+   * @returns {HTMLElement} HTMLElement
+   */
   static createElement = function (
     HTMLString = ""
   ) {
@@ -1501,13 +1667,30 @@ class Domlib {
     }
     return strToHTMLElement(HTMLString) || new Text(HTMLString);
   };
-  static createDirective = function (directiveName,onInit,option={restriction:[],data:{}}) {
-    return (new this.#Core).HTMLDirective.create(directiveName,onInit,option)
+  /**
+   * create a directive
+   * @param {string} directiveName 
+   * @param {Function} onInit 
+   * @param {Object} option 
+   * @returns 
+   */
+  static createDirective = function (directiveName,init,option={restriction:[],data:{}}) {
+    return (new this.#Core).HTMLDirective.create(directiveName,init,option)
   };
+  /**
+   * build a Custom element by constructor
+   * @param {FunctionConstructor} funcConstructor 
+   * @returns FunctionConstructor
+   */
   static build = function (funcConstructor) {
+    if(!Traper.isConstructor(funcConstructor)){
+      const msg=funcConstructor.name+"handler must be a constructor"
+      console.warn(msg);
+      throw msggggg
+    }
     if (Object.getPrototypeOf(funcConstructor) !== Domlib.Element) {
       console.warn(`the class ${funcConstructor.name} must extends Domlib.Element`);
-      throw `the class ${funcConstructor.name} must extends Domlib.Element`;
+      throw `the class ${func.name} must extends Domlib.Element`;
     }
     if (funcConstructor.localName.search(/^[a-z]+-[a-z]+$/) === -1) {
       console.warn("localName `" + funcConstructor.localName + "` is not valid ");
@@ -1516,6 +1699,13 @@ class Domlib {
     }
     return new this.#Core().defineElement(funcConstructor);
   };
+  /**
+   * build a Custom element by function
+   * @param {string} localName -name custom element
+   * @param {Function} func -rend element 
+   * @param {string} extend 
+   * @returns 
+   */
   static el=function(localName, func, extend = "") {
     if(typeof func!='function'){
       const message="func must be a function"
