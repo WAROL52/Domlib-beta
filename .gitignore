@@ -1,5 +1,4 @@
-miniLib/$Typer.js
-miniLib/Traper.js
-Domlib.js
-index.html
-script.js
+/miniLib
+/Domlib.js
+/index.html
+/script.js
