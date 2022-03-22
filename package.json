@@ -1,5 +1,5 @@
 {
-  "name": "domlib",
+  "name": "@warol52/domlib-js",
   "version": "1.0.0",
   "description": "\"A JavaScript library for creating user interfaces\"",
   "main": "script.js",
@@ -11,7 +11,7 @@
     "url": "git+https://github.com/WAROL52/Domlib-beta.git"
   },
   "keywords": [
-    "Rolio"
+    "javascript"
   ],
   "author": "warol52 <rabetsyrolio@gmail.com>",
   "license": "ISC",
