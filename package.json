@@ -1,0 +1,22 @@
+{
+  "name": "domlib",
+  "version": "1.0.0",
+  "description": "\"A JavaScript library for creating user interfaces\"",
+  "main": "script.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WAROL52/Domlib-beta.git"
+  },
+  "keywords": [
+    "Rolio"
+  ],
+  "author": "warol52 <rabetsyrolio@gmail.com>",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/WAROL52/Domlib-beta/issues"
+  },
+  "homepage": "https://github.com/WAROL52/Domlib-beta#readme"
+}
