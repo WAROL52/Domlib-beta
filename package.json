@@ -8,7 +8,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/WAROL52/Domlib-beta.git"
+    "url": "git+https://github.com/WAROL52/Domlib-js.git"
   },
   "keywords": [
     "javascript"
@@ -16,7 +16,7 @@
   "author": "warol52 <rabetsyrolio@gmail.com>",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/WAROL52/Domlib-beta/issues"
+    "url": "https://github.com/WAROL52/Domlib-js/issues"
   },
-  "homepage": "https://github.com/WAROL52/Domlib-beta#readme"
+  "homepage": "https://github.com/WAROL52/Domlib-js#readme"
 }

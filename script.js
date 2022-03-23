@@ -3,7 +3,7 @@ class TodoList extends Domlib.Element{
   static localName="todo-list"
   constructor(){
     super()
-
+    this.$on.change('addNewTodo',()=>{})
     this.todos=["todo 1","todo 2"]
     this.newTodo=""
   }
