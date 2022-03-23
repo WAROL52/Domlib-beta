@@ -1467,7 +1467,6 @@ class Domlib {
           var rend = this.#handler.render.call(this.#handler,this.#handler) || `<h1>Hello ${this.localName} </h1>`;
           
           if(typeof rend=='object' && !Core.isDom(rend)){
-            console.warn('iti');
             const oldRender=this.#handler.render
             // Object.assign(this.#handler,rend)
             for(let at in rend){
