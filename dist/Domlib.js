@@ -1630,10 +1630,8 @@ class Domlib {
           this._el.remove()
           component.removeDirectiveComponent(idEl)
           component.instances[idEl].dispatchEvent('onAfterDestroy',this)
-          console.log('delete',idEl);
           return true
         }
-        console.log('yoo');
         return false
       }).bind(this)
       this.constructor.prototype.createDirective=(directiveName,onInit,option={restriction:[],data:{}})=>{
